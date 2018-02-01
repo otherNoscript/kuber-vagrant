@@ -13,15 +13,17 @@ MNT_TMP=$(mktemp -d)
 
 if [[ ! -f $ISO_HTTP_NAME ]]; then
     curl -O $ISO_HTTP
+fi
 
+if [[ ! -f $ISO_SAVE ]]; then
     mount -o loop $ISO_HTTP_NAME $MNT_TMP
     mkdir $ISO_TMP
     cp -rT $MNT_TMP $ISO_TMP
     umount $MNT_TMP
     rm -rf $MNT_TMP
     
-    #apt-get update
-    #apt-get -y install qemu-kvm libvirt-bin bridge-utils virt-manager ansible mkisofs libguestfs-tools
+    apt-get update
+    apt-get -y install qemu-kvm libvirt-bin bridge-utils virt-manager ansible mkisofs libguestfs-tools
     
     cp -r unattend_ubnt/* $ISO_TMP/
     
