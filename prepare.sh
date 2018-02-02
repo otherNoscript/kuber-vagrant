@@ -23,11 +23,15 @@ if [[ ! -f $ISO_SAVE ]]; then
     rm -rf $MNT_TMP
     
 #    apt-get update
-#    apt-get -y install qemu-kvm libvirt-bin bridge-utils virt-manager ansible mkisofs libguestfs-tools
+#    apt-get -y install software-properties-common
+#    apt-add-repository ppa:ansible/ansible
+#    apt-get update
+#    apt-get -y install ansible qemu-kvm libvirt-bin bridge-utils virt-manager mkisofs libguestfs-tools
     
     cp -r unattend_ubnt/* $ISO_TMP/
     
     mkisofs -U -A "$ISO_NAME" -V "16.04.3" -volset "$ISO_NAME" -J -joliet-long -r -v -T -o $ISO_SAVE -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot $ISO_TMP
+    md5sum $ISO_SAVE | cut -d' ' -f1 > $ISO_SAVE.md5
     
     rm -rf $ISO_TMP
     
@@ -38,9 +42,9 @@ if [[ ! -f "$KVM_HOME/images/$KVM_TEMPLATE_NAME.img" ]]; then
 
     sleep 30
     virsh shutdown $KVM_TEMPLATE_NAME
-    virsh autostart --disable $KVM_TEMPLATE_NAME
-    sleep 5
+    sleep 10
     virsh dumpxml $KVM_TEMPLATE_NAME > $KVM_HOME/images/$KVM_TEMPLATE_NAME.xml
+    virsh autostart --disable $KVM_TEMPLATE_NAME
     virsh undefine $KVM_TEMPLATE_NAME
     #Backup
     #cp $KVM_HOME/images/$KVM_TEMPLATE_NAME.img $KVM_HOME/images/$KVM_TEMPLATE_NAME.img.back
