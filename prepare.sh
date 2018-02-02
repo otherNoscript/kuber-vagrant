@@ -36,9 +36,12 @@ fi
 if [[ ! -f "$KVM_HOME/images/$KVM_TEMPLATE_NAME.img" ]]; then    
     virt-install --virt-type=kvm --hvm --os-variant=ubuntu16.04 --name $KVM_TEMPLATE_NAME --ram 2048 --vcpus=2 --graphics vnc,listen=0.0.0.0,password=Inst@ll --cdrom=$ISO_SAVE --network network=default,model=virtio --disk path=$KVM_HOME/images/$KVM_TEMPLATE_NAME.img,size=16,bus=virtio
 
+    sleep 10
     virsh shutdown $KVM_TEMPLATE_NAME
-    virsh dumpxml $KVM_TEMPLATE_NAME > $KVM_HOME/images/$KVM_TEMPLATE_NAME.xml
     virsh autostart --disable $KVM_TEMPLATE_NAME
+    sleep 5
+    virsh dumpxml $KVM_TEMPLATE_NAME > $KVM_HOME/images/$KVM_TEMPLATE_NAME.xml
+    virsh undefine $KVM_TEMPLATE_NAME
     virt-sysprep -a $KVM_HOME/images/$KVM_TEMPLATE_NAME.img
 
 fi
