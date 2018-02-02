@@ -42,7 +42,9 @@ if [[ ! -f "$KVM_HOME/images/$KVM_TEMPLATE_NAME.img" ]]; then
     sleep 5
     virsh dumpxml $KVM_TEMPLATE_NAME > $KVM_HOME/images/$KVM_TEMPLATE_NAME.xml
     virsh undefine $KVM_TEMPLATE_NAME
-    virt-sysprep -a $KVM_HOME/images/$KVM_TEMPLATE_NAME.img
+    #Backup
+    #cp $KVM_HOME/images/$KVM_TEMPLATE_NAME.img $KVM_HOME/images/$KVM_TEMPLATE_NAME.img.back
+    virt-sysprep --enable=cron-spool,dhcp-client-state,dhcp-server-state,logfiles,mail-spool,net-hwaddr,rhn-systemid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid -a $KVM_HOME/images/$KVM_TEMPLATE_NAME.img
 
 fi
 
