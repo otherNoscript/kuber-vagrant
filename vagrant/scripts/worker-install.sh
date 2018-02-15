@@ -2,7 +2,7 @@
 set -e
 
 # List of etcd servers (http://ip:port), comma separated
-export ETCD_ENDPOINTS=
+export ETCD_ENDPOINTS=2379
 
 # The endpoint the worker node should use to contact controller nodes (https://ip:port)
 # In HA configurations this should be an external DNS record or loadbalancer in front of the control nodes.
@@ -10,7 +10,7 @@ export ETCD_ENDPOINTS=
 export CONTROLLER_ENDPOINT=
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.5.4_coreos.0
+export K8S_VER=v1.7.3_coreos.0
 
 # Hyperkube image repository to use.
 export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
@@ -25,7 +25,7 @@ export POD_NETWORK=10.2.0.0/16
 export DNS_SERVICE_IP=10.3.0.10
 
 # Whether to use Calico for Kubernetes network policy.
-export USE_CALICO=false
+export USE_CALICO=true
 
 # Determines the container runtime for kubernetes to use. Accepts 'docker' or 'rkt'.
 export CONTAINER_RUNTIME=docker
@@ -83,6 +83,10 @@ Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
   --mount volume=stage,target=/tmp \
   --volume var-log,kind=host,source=/var/log \
   --mount volume=var-log,target=/var/log \
+  --volume modprobe,kind=host,source=/usr/sbin/modprobe \
+  --mount volume=modprobe,target=/usr/sbin/modprobe \
+  --volume lib-modules,kind=host,source=/lib/modules \
+  --mount volume=lib-modules,target=/lib/modules \
   ${CALICO_OPTS}"
 ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
 ExecStartPre=/usr/bin/mkdir -p /var/log/containers
@@ -103,7 +107,8 @@ ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --cluster_domain=cluster.local \
   --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
   --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
-  --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem
+  --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
+  --volume-plugin-dir=/etc/kubernetes/volumeplugins
 ExecStop=-/usr/bin/rkt stop --uuid-file=${uuid_file}
 Restart=always
 RestartSec=10
@@ -328,3 +333,4 @@ systemctl enable flanneld; systemctl start flanneld
 
 
 systemctl enable kubelet; systemctl start kubelet
+

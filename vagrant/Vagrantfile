@@ -53,7 +53,7 @@ etcd_endpoints = etcdIPs.map.with_index{ |ip, i| "http://#{ip}:2379" }.join(",")
 system("mkdir -p ssl && lib/init-ssl-ca ssl") or abort ("failed generating SSL artifacts")
 
 # Generate admin key/cert
-system("lib/init-ssl ssl admin kube-admin") or abort("failed generating admin SSL artifacts")
+system("lib/init-ssl ssl admin cluster-admin") or abort("failed generating admin SSL artifacts")
 
 def provisionMachineSSL(machine,certBaseName,cn,ipAddrs)
   tarFile = "ssl/#{cn}.tar"

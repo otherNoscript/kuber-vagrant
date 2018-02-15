@@ -19,3 +19,6 @@ $BIN/k create -f $YAML/cassandra/vol.yml
 $BIN/k create -f $YAML/cassandra/stateful.yml
 $BIN/k scale --replicas=3 statefulset/cassandra
 
+$BIN/k create ns prometheus
+$BIN/h install coreos/kube-prometheus --namespace prometheus --name monitoring
+ 

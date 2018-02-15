@@ -5,7 +5,7 @@ set -e
 export ETCD_ENDPOINTS=
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.5.4_coreos.0
+export K8S_VER=v1.7.3_coreos.0
 
 # Hyperkube image repository to use.
 export HYPERKUBE_IMAGE_REPO=quay.io/coreos/hyperkube
@@ -31,7 +31,7 @@ export K8S_SERVICE_IP=10.3.0.1
 export DNS_SERVICE_IP=10.3.0.10
 
 # Whether to use Calico for Kubernetes network policy.
-export USE_CALICO=false
+export USE_CALICO=true
 
 # Determines the container runtime for kubernetes to use. Accepts 'docker' or 'rkt'.
 export CONTAINER_RUNTIME=docker
@@ -112,6 +112,10 @@ Environment="RKT_RUN_ARGS=--uuid-file-save=${uuid_file} \
   --mount volume=stage,target=/tmp \
   --volume var-log,kind=host,source=/var/log \
   --mount volume=var-log,target=/var/log \
+  --volume modprobe,kind=host,source=/usr/sbin/modprobe \
+  --mount volume=modprobe,target=/usr/sbin/modprobe \
+  --volume lib-modules,kind=host,source=/lib/modules \
+  --mount volume=lib-modules,target=/lib/modules \
   ${CALICO_OPTS}"
 ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
 ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
@@ -119,7 +123,7 @@ ExecStartPre=/usr/bin/mkdir -p /var/log/containers
 ExecStartPre=-/usr/bin/rkt rm --uuid-file=${uuid_file}
 ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --api-servers=http://127.0.0.1:8080 \
-  --register-schedulable=false \
+  --register-schedulable=true \
   --cni-conf-dir=/etc/kubernetes/cni/net.d \
   --network-plugin=cni \
   --container-runtime=${CONTAINER_RUNTIME} \
@@ -129,7 +133,8 @@ ExecStart=/usr/lib/coreos/kubelet-wrapper \
   --pod-manifest-path=/etc/kubernetes/manifests \
   --hostname-override=${ADVERTISE_IP} \
   --cluster_dns=${DNS_SERVICE_IP} \
-  --cluster_domain=cluster.local
+  --cluster_domain=cluster.local \
+  --volume-plugin-dir=/etc/kubernetes/volumeplugins
 ExecStop=-/usr/bin/rkt stop --uuid-file=${uuid_file}
 Restart=always
 RestartSec=10
@@ -260,6 +265,7 @@ spec:
     - --bind-address=0.0.0.0
     - --etcd-servers=${ETCD_ENDPOINTS}
     - --allow-privileged=true
+    - --authorization-mode=RBAC
     - --service-cluster-ip-range=${SERVICE_IP_RANGE}
     - --secure-port=443
     - --advertise-address=${ADVERTISE_IP}
@@ -270,6 +276,8 @@ spec:
     - --service-account-key-file=/etc/kubernetes/ssl/apiserver-key.pem
     - --runtime-config=extensions/v1beta1/networkpolicies=true
     - --anonymous-auth=false
+    - --storage-backend=etcd2
+    - --storage-media-type=application/json
     livenessProbe:
       httpGet:
         host: 127.0.0.1
@@ -322,6 +330,7 @@ spec:
     - --leader-elect=true
     - --service-account-private-key-file=/etc/kubernetes/ssl/apiserver-key.pem
     - --root-ca-file=/etc/kubernetes/ssl/ca.pem
+    - --flex-volume-plugin-dir=/etc/kubernetes/volumeplugins
     resources:
       requests:
         cpu: 200m
@@ -339,6 +348,9 @@ spec:
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
       readOnly: true
+    - mountPath: /etc/kubernetes/volumeplugins
+      name: volumeplugins-host
+      readonly: false
   hostNetwork: true
   volumes:
   - hostPath:
@@ -347,6 +359,9 @@ spec:
   - hostPath:
       path: /usr/share/ca-certificates
     name: ssl-certs-host
+  - hostPath:
+      path: /etc/kubernetes/volumeplugins
+    name: volumeplugins-host
 EOF
     fi
 
@@ -380,6 +395,26 @@ spec:
         port: 10251
       initialDelaySeconds: 15
       timeoutSeconds: 15
+EOF
+    fi
+
+    local TEMPLATE=/srv/kubernetes/manifests/add-on-cluster-admin-crb.yaml
+    if [ ! -f $TEMPLATE ]; then
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: add-on-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kube-system
 EOF
     fi
 
@@ -889,7 +924,7 @@ spec:
         # container programs network policy and routes on each
         # host.
         - name: calico-node
-          image: quay.io/calico/node:v0.23.0
+          image: quay.io/calico/node:v2.4.1
           env:
             # The location of the Calico etcd cluster.
             - name: ETCD_ENDPOINTS
@@ -905,6 +940,8 @@ spec:
               value: "true"
             - name: NO_DEFAULT_POOLS
               value: "true"
+            - name: IP_AUTODETECTION_METHOD
+              value: "can-reach=172.17.4.101"
           securityContext:
             privileged: true
           volumeMounts:
@@ -920,7 +957,7 @@ spec:
         # This container installs the Calico CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: quay.io/calico/cni:v1.5.2
+          image: quay.io/calico/cni:v1.10.0
           imagePullPolicy: Always
           command: ["/install-cni.sh"]
           env:
@@ -994,7 +1031,7 @@ spec:
       hostNetwork: true
       containers:
         - name: calico-policy-controller
-          image: calico/kube-policy-controller:v0.4.0
+          image: calico/kube-policy-controller:v0.7.0
           env:
             # The location of the Calico etcd cluster.
             - name: ETCD_ENDPOINTS
@@ -1023,6 +1060,8 @@ function start_addons {
     done
 
     echo
+    echo "K8S: addon cluster admin"
+    curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/add-on-cluster-admin-crb.yaml)" "http://127.0.0.1:8080/apis/rbac.authorization.k8s.io/v1beta1/clusterrolebindings" > /dev/null
     echo "K8S: DNS addon"
     curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kube-dns-de.yaml)" "http://127.0.0.1:8080/apis/extensions/v1beta1/namespaces/kube-system/deployments" > /dev/null
     curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kube-dns-svc.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/services" > /dev/null
@@ -1074,3 +1113,4 @@ fi
 
 start_addons
 echo "DONE"
+
