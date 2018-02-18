@@ -1,8 +1,8 @@
 #!/bin/bash
-set -e
+set -xe
 
 # List of etcd servers (http://ip:port), comma separated
-export ETCD_ENDPOINTS=
+export ETCD_ENDPOINTS=http://127.0.0.1:2379
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
 export K8S_VER=v1.7.3_coreos.0
@@ -143,6 +143,23 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
     fi
+
+
+    local TEMPLATE=/run/systemd/system/etcd2.service.d/20-cloudinit.conf
+    if [ ! -f $TEMPLATE ]; then
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+[Service]
+Environment="ETCD_ADVERTISE_CLIENT_URLS=http://172.17.4.101:2379"
+Environment="ETCD_INITIAL_ADVERTISE_PEER_URLS=http://172.17.4.101:2380"
+Environment="ETCD_INITIAL_CLUSTER=c1=http://172.17.4.101:2380"
+Environment="ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379"
+Environment="ETCD_LISTEN_PEER_URLS=http://172.17.4.101:2380"
+Environment="ETCD_NAME=c1"
+EOF
+    fi
+
 
     local TEMPLATE=/opt/bin/host-rkt
     if [ ! -f $TEMPLATE ]; then
@@ -1050,6 +1067,7 @@ spec:
               value: "true"
 EOF
     fi
+
 }
 
 function start_addons {
@@ -1061,7 +1079,7 @@ function start_addons {
 
     echo
     echo "K8S: addon cluster admin"
-    curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/add-on-cluster-admin-crb.yaml)" "http://127.0.0.1:8080/apis/rbac.authorization.k8s.io/v1beta1/clusterrolebindings" > /dev/null
+    curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/add-on-cluster-admin-crb.yaml)" "http://127.0.0.1:8080/apis/rbac.authorization.k8s.io/v1beta1/rolebindings" > /dev/null
     echo "K8S: DNS addon"
     curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kube-dns-de.yaml)" "http://127.0.0.1:8080/apis/extensions/v1beta1/namespaces/kube-system/deployments" > /dev/null
     curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kube-dns-svc.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/services" > /dev/null
@@ -1090,6 +1108,10 @@ function start_calico {
 init_config
 init_templates
 
+systemctl daemon-reload
+
+systemctl enable etcd2; systemctl start etcd2
+
 chmod +x /opt/bin/host-rkt
 
 init_flannel
@@ -1112,5 +1134,6 @@ if [ $USE_CALICO = "true" ]; then
 fi
 
 start_addons
+
 echo "DONE"
 

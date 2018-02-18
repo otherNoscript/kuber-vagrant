@@ -9,7 +9,7 @@ cd $BASEDIR/vagrant/
 vagrant up
 
 echo "Waiting for Kubernetes API..."
-until curl --silent --insecure "https://172.17.4.101:443"
+until curl --silent --insecure "https://172.17.4.101:443" > /dev/null
 do
     sleep 5
 done

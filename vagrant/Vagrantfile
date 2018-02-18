@@ -8,7 +8,7 @@ require 'yaml'
 
 Vagrant.require_version ">= 1.6.0"
 
-$update_channel = "stable"
+$update_channel = "beta"
 $controller_count = 1
 $controller_vm_memory = 1024
 $worker_count = 1
@@ -53,7 +53,7 @@ etcd_endpoints = etcdIPs.map.with_index{ |ip, i| "http://#{ip}:2379" }.join(",")
 system("mkdir -p ssl && lib/init-ssl-ca ssl") or abort ("failed generating SSL artifacts")
 
 # Generate admin key/cert
-system("lib/init-ssl ssl admin cluster-admin") or abort("failed generating admin SSL artifacts")
+system("lib/init-ssl ssl admin kube-admin") or abort("failed generating admin SSL artifacts")
 
 def provisionMachineSSL(machine,certBaseName,cn,ipAddrs)
   tarFile = "ssl/#{cn}.tar"
@@ -101,42 +101,42 @@ Vagrant.configure("2") do |config|
     vb.gui = false
   end
 
-  (1..$etcd_count).each do |i|
-    config.vm.define vm_name = "e%d" % i do |etcd|
-
-      data = YAML.load(IO.readlines(ETCD_CLOUD_CONFIG_PATH)[1..-1].join)
-      data['coreos']['etcd2']['initial-cluster'] = initial_etcd_cluster
-      data['coreos']['etcd2']['name'] = vm_name
-      etcd_config_file = Tempfile.new('etcd_config', :binmode => true)
-      etcd_config_file.write("#cloud-config\n#{data.to_yaml}")
-      etcd_config_file.close
-
-      etcd.vm.hostname = vm_name
-
-      ["vmware_fusion", "vmware_workstation"].each do |vmware|
-        etcd.vm.provider vmware do |v|
-          v.vmx['memsize'] = $etcd_vm_memory
-        end
-      end
-
-      etcd.vm.provider :virtualbox do |vb|
-        vb.memory = $etcd_vm_memory
-      end
-
-      etcd.vm.network :private_network, ip: etcdIP(i)
-
-      etcd.vm.provision :file, :source => etcd_config_file.path, :destination => "/tmp/vagrantfile-user-data"
-      etcd.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
-    end
-  end
+#  (1..$etcd_count).each do |i|
+#    config.vm.define vm_name = "e%d" % i do |etcd|
+#
+#      data = YAML.load(IO.readlines(ETCD_CLOUD_CONFIG_PATH)[1..-1].join)
+#      data['coreos']['etcd2']['initial-cluster'] = initial_etcd_cluster
+#      data['coreos']['etcd2']['name'] = vm_name
+#      etcd_config_file = Tempfile.new('etcd_config', :binmode => true)
+#      etcd_config_file.write("#cloud-config\n#{data.to_yaml}")
+#      etcd_config_file.close
+#
+#      etcd.vm.hostname = vm_name
+#
+#      ["vmware_fusion", "vmware_workstation"].each do |vmware|
+#        etcd.vm.provider vmware do |v|
+#          v.vmx['memsize'] = $etcd_vm_memory
+#        end
+#      end
+#
+#      etcd.vm.provider :virtualbox do |vb|
+#        vb.memory = $etcd_vm_memory
+#      end
+#
+#      etcd.vm.network :private_network, ip: etcdIP(i)
+#
+#      etcd.vm.provision :file, :source => etcd_config_file.path, :destination => "/tmp/vagrantfile-user-data"
+#      etcd.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+#    end
+#  end
 
 
   (1..$controller_count).each do |i|
     config.vm.define vm_name = "c%d" % i do |controller|
 
-      env_file = Tempfile.new('env_file', :binmode => true)
-      env_file.write("ETCD_ENDPOINTS=#{etcd_endpoints}\n")
-      env_file.close
+#      env_file = Tempfile.new('env_file', :binmode => true)
+#      env_file.write("ETCD_ENDPOINTS=#{etcd_endpoints}\n")
+#      env_file.close
 
       controller.vm.hostname = vm_name
 
@@ -156,8 +156,8 @@ Vagrant.configure("2") do |config|
       # Each controller gets the same cert
       provisionMachineSSL(controller,"apiserver","kube-apiserver-#{controllerIP}",controllerIPs)
 
-      controller.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
-      controller.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
+#      controller.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
+#      controller.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
 
       controller.vm.provision :file, :source => CONTROLLER_CLOUD_CONFIG_PATH, :destination => "/tmp/vagrantfile-user-data"
       controller.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
