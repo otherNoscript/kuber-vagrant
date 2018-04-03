@@ -1,45 +1,40 @@
-**Для RHEL7/CentOS7:**
+# Kubernetes on CoreOS Container Linux
 
-```bash
-sudo yum install git
-```
+This repo contains tooling and documentation around deploying Kubernetes using CoreOS Container Linux.
+Initial setup of a Kubernetes cluster is covered, but ongoing maintenance and updates of the cluster is not addressed.
+It is officially maintained by the CoreOS team and meant to be a set of introductory documentation to get a feel for using Kubernetes on Container Linux.
 
-Следуя инструкции https://gist.github.com/paulmaunders/3e2cbe02c07b6393f7ef0781eed9f97b необходимо установить Vagrant и VirtualBox.
+*Notice: kube-aws has moved!*
 
-**Для Debian/Ubuntu:**
+If you're looking for kube-aws, it has been moved to a new [dedicated repository](https://github.com/coreos/kube-aws). All oustanding AWS-related issues and PRs should be moved to there. This repository will continue to host development on single and multi node vagrant distributions.
 
-```bash
-sudo apt-get -y install git vagrant virtualbox
-```
----------------------
+## The CoreOS Way
 
-Склонировать репозитарий с github командой:
+When designing these guides and tools, the following considerations are made:
 
-```bash
-git clone https://github.com/otherNoscript/kubernetes-cluster.git
-```
+* We always setup TLS
+* An individual node can reboot and the cluster will still function
+* Internal cluster DNS is available
+* Service accounts enabled
+* Follow Kubernetes guidelines for AdmissionControllers and other suggested configuration
 
-Настроки виртуального окружения выполнятеся в файле kubernetes-cluster/vagrant/config.rb
+## Kubernetes Topics
 
-```ruby
-# Выбор ветки образа CoreOS. Возможные варианты: alpha, beta, stable 
-$update_channel="stable"
+Follow the Kubernetes guides on the CoreOS website:
 
-# Количество контроллеров Kubernetes и объем выделяемой памяти для каждой виртуальной машины
-$controller_count=1
-$controller_vm_memory=512
+https://coreos.com/kubernetes/docs/latest/
 
-# Количество воркеров Kubernetes и объем выделяемой памяти для каждой виртуальной машины
-$worker_count=3
-$worker_vm_memory=2048
+ - [Intro to Pods](https://coreos.com/kubernetes/docs/latest/pods.html)
+ - [Intro to Services](https://coreos.com/kubernetes/docs/latest/services.html)
+ - [Intro to Replication Controllers](https://coreos.com/kubernetes/docs/latest/replication-controller.html)
 
-# Количество нод etcd и объем выделяемой памяти для каждой виртуальной машины
-$etcd_count=1
-$etcd_vm_memory=512
-```
+## Deploying on Container Linux
 
-Запускаем скрипт авто-деплоя
+- [Step-by-Step for Any Platform](Documentation/getting-started.md)
+- [Single-Node Vagrant Stack](single-node/README.md)
+- [Multi-Node Vagrant Cluster](multi-node/vagrant/README.md)
+- [Multi-Node Bare Metal Cluster](Documentation/kubernetes-on-baremetal.md)
 
-```bash
-./kubernetes-cluster/deploy.sh
-```
+## Running Kubernetes Conformance Tests
+
+- [Conformance Tests](Documentation/conformance-tests.md)
